@@ -1,3 +1,5 @@
+package hangman;
+
 /**
  * Common interface for GuessWord and GuessLetter
  */

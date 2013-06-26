@@ -1,3 +1,5 @@
+package hangman;
+
 /**
  * A Guess that represents guessing a word for the current Hangman game
  */
