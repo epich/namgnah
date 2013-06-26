@@ -13,7 +13,7 @@ import org.junit.runners.JUnit4;
 public class HangmanTest {
   @Test
   public void testHangman() {
-    System.out.println("Inside main.");
+    System.out.println("Inside testHangman method.");
     Assert.assertTrue(true);
   }
 }

@@ -1,20 +1,19 @@
 # Builds Hangman using JRuby Rake's interface to Ant.
+#
+# See build.sh for a convenient way to invoke this.
+# eg './build.sh test' runs the tests.
 
 require 'ant'
 
 task :default => :jar
 
 BUILD_DIR = "target"
-REPORT_DIR = "report"
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
-JUNIT_JAR = "src/test/lib/junit.jar"
+JUNIT_JAR = "src/test/lib/junit-4.10.jar"
 
-# Define build target for each directory to create
-[BUILD_DIR, REPORT_DIR].each do |dir|
-  file dir do |task_arg|
-    mkdir_p task_arg.name
-  end
+file BUILD_DIR do |task_arg|
+  mkdir_p task_arg.name
 end
 
 task :setup => BUILD_DIR do
@@ -36,11 +35,10 @@ end
 
 task :jar => :compile do
   ant.jar :destfile => "hangman.jar", :basedir => BUILD_DIR
-  #ant.jar :destfile => "hangman-test.jar", :basedir => BUILD_DIR
 end
 
 task :compile_test => :setup do
-  ant.javac :destdir => BUILD_DIR, :includeAntRuntime => true do
+  ant.javac :destdir => BUILD_DIR, :includeAntRuntime => false do
     classpath do
       path :refid => "hangman.classpath"
       path :refid => "hangman.test.classpath"
@@ -49,13 +47,13 @@ task :compile_test => :setup do
   end
 end
 
-task :test => [:compile, :compile_test, REPORT_DIR] do
-  ant.junit :printsummary => "withOutAndErr" do
+task :test => [:compile, :compile_test] do
+  ant.junit :printsummary => true do
     classpath do
       path :refid => "hangman.classpath"
       path :refid => "hangman.test.classpath"
     end
-    batchtest :todir => REPORT_DIR do
+    batchtest do
       fileset :dir => TEST_SRC_DIR, :includes => '**/*Test.java'
     end
   end
