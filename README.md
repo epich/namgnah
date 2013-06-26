@@ -3,7 +3,7 @@ Hangman
 
 JRuby
   - Install JRuby 1.7.4 or above
-    - A sufficiently new version is important. I found older JRuby were incompatible with the Ant 1.9 series because of [1].
+    - A sufficiently new version is important. I found older JRuby were incompatible with the Ant 1.9 series because of https://github.com/jruby/jruby/issues/601 bug.
   - Add the JRuby bin directory to PATH
   - jruby -S gem install rake
 
@@ -14,8 +14,6 @@ Ant
     - eg: export ANT_HOME=/home/boreilly/sw/apache-ant-1.9.1
 
 JUnit
-  - JUnit 4.10 is bundled with this distribution
-  - JUnit 4.11 was too buggy to use
-
-[1] https://github.com/jruby/jruby/issues/601
+  - NB: JUnit 4.10 is bundled with this distribution
+  - NB: JUnit 4.11 was too buggy to use
 
