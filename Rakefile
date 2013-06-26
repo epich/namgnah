@@ -4,6 +4,7 @@
 # eg './build.sh test' runs the tests.
 
 require 'ant'
+require 'rake/clean'
 
 task :default => :jar
 
@@ -11,13 +12,16 @@ BUILD_DIR = "target"
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
 JUNIT_JAR = "src/test/lib/junit-4.10.jar"
+BUILD_LOG = "build.log"
+
+CLEAN.include BUILD_DIR, BUILD_LOG
 
 file BUILD_DIR do |task_arg|
   mkdir_p task_arg.name
 end
 
 task :setup => BUILD_DIR do
-  ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
+  ant.record :name => BUILD_LOG, :loglevel => "verbose", :action => "start"
   ant.path :id => "hangman.classpath" do
     pathelement :location => "target"
   end
