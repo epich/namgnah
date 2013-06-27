@@ -1,4 +1,4 @@
-(ns hangman.guessing_strategy
+(ns hangman.guess
  (:gen-class
     :methods [#^{:static true} [foo [int] void]]))
 
