@@ -2,6 +2,11 @@
 #
 # See build.sh for a convenient way to invoke this.
 # eg './build.sh test' runs the tests.
+#
+# Debugging advice:
+#   - Set loglevel in the ant.record task
+#   - Get Ant properties by: ant.properties['property.name']
+#   - Get Ant path-like objects by: ant.project.getReference('my.classpath')
 
 require 'ant'
 require 'rake/clean'
@@ -14,7 +19,7 @@ TEST_SRC_DIR = "src/test/java"
 JUNIT_JAR = "src/test/lib/junit-4.10.jar"
 BUILD_LOG = "build.log"
 
-CLEAN.include BUILD_DIR, BUILD_LOG
+CLEAN.include BUILD_DIR, BUILD_LOG, "hangman.el"
 
 file BUILD_DIR do |task_arg|
   mkdir_p task_arg.name
@@ -61,5 +66,14 @@ task :test => [:compile, :compile_test] do
       fileset :dir => TEST_SRC_DIR, :includes => '**/*Test.java'
     end
   end
+end
+
+# Export Elisp for importing into Emacs.
+#
+# Primarily for the classpath, of which the Rakefile is the primary source
+file "hangman.el" => ["Rakefile", :setup] do |task_arg|
+  classpath_jvmStyle = ant.project.getReference('hangman.classpath').to_s+":"+ant.project.getReference('hangman.test.classpath').to_s
+  classpath_lispStyle = '(defvar hangman-classpath "'+classpath_jvmStyle.gsub(":", '" "')+'")'
+  File.open("hangman.el", 'w') { |f| f.write(classpath_lispStyle+"\n") }
 end
 
