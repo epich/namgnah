@@ -1,4 +1,8 @@
-# Builds Hangman using JRuby Rake's interface to Ant.
+# Builds Hangman using JRuby's Rake library.
+#
+# JRuby Rake has an interface to Ant which is used here to compile
+# Java. The dependency graph engine comes from Rake however, as does
+# the superior scripting facility.
 #
 # See build.sh for a convenient way to invoke this.
 # eg './build.sh test' runs the tests.
@@ -11,14 +15,18 @@
 require 'ant'
 require 'rake/clean'
 
-task :default => :jar
+CLOJURE_JAR = "/home/epich/s/sw/clojure-1.5.1/target/clojure-1.5.1.jar"
 
+# TODO: Define ANT_HOME to bring it out of parent environment
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
 JUNIT_JAR = "src/test/lib/junit-4.10.jar"
 
 CLEAN.include "target", "build.log", "hangman.el"
 
+task :default => :jar
+
+# TODO: classes and test-classes dirs, target .jar in target dir
 file "target" do |task_arg|
   mkdir_p task_arg.name
 end
@@ -27,6 +35,7 @@ task :setup => "target" do
   ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
   ant.path :id => "hangman.classpath" do
     pathelement :location => "target"
+    pathelement :location => CLOJURE_JAR
   end
   ant.path :id => "hangman.test.classpath" do
     pathelement :location => JUNIT_JAR
@@ -38,6 +47,9 @@ task :compile => :setup do
     classpath :refid => "hangman.classpath"
     src { pathelement :location => MAIN_SRC_DIR }
   end
+
+  # TODO: Need to actually create classes dir
+  system("java -Dclojure.compile.path=target/classes -cp #{CLOJURE_JAR}:target/classes:src/main/clj clojure.lang.Compile hangman.guessing_strategy")
 end
 
 task :jar => :compile do
