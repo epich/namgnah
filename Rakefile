@@ -3,7 +3,7 @@
 # See build.sh for a convenient way to invoke this.
 # eg './build.sh test' runs the tests.
 #
-# Debugging advice:
+# Debugging notes:
 #   - Set loglevel in the ant.record task
 #   - Get Ant properties by: ant.properties['property.name']
 #   - Get Ant path-like objects by: ant.project.getReference('my.classpath')
@@ -13,20 +13,18 @@ require 'rake/clean'
 
 task :default => :jar
 
-BUILD_DIR = "target"
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
 JUNIT_JAR = "src/test/lib/junit-4.10.jar"
-BUILD_LOG = "build.log"
 
-CLEAN.include BUILD_DIR, BUILD_LOG, "hangman.el"
+CLEAN.include "target", "build.log", "hangman.el"
 
-file BUILD_DIR do |task_arg|
+file "target" do |task_arg|
   mkdir_p task_arg.name
 end
 
-task :setup => BUILD_DIR do
-  ant.record :name => BUILD_LOG, :loglevel => "verbose", :action => "start"
+task :setup => "target" do
+  ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
   ant.path :id => "hangman.classpath" do
     pathelement :location => "target"
   end
@@ -36,18 +34,18 @@ task :setup => BUILD_DIR do
 end
 
 task :compile => :setup do
-  ant.javac :destdir => BUILD_DIR, :includeAntRuntime => false do
+  ant.javac :destdir => "target", :includeAntRuntime => false do
     classpath :refid => "hangman.classpath"
     src { pathelement :location => MAIN_SRC_DIR }
   end
 end
 
 task :jar => :compile do
-  ant.jar :destfile => "hangman.jar", :basedir => BUILD_DIR
+  ant.jar :destfile => "hangman.jar", :basedir => "target"
 end
 
 task :compile_test => :setup do
-  ant.javac :destdir => BUILD_DIR, :includeAntRuntime => false do
+  ant.javac :destdir => "target", :includeAntRuntime => false do
     classpath do
       path :refid => "hangman.classpath"
       path :refid => "hangman.test.classpath"
