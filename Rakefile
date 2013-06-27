@@ -4,8 +4,11 @@
 # Java. The dependency graph engine comes from Rake however, as does
 # the superior scripting facility.
 #
-# See build.sh for a convenient way to invoke this.
-# eg './build.sh test' runs the tests.
+# This also compiles Clojure code, using Rake's dependency engine and
+# invoking clojure.lang.Compile directly.
+#
+# See build.sh for a convenient way to invoke this. eg
+# './build.sh test' runs the tests.
 #
 # Debugging notes:
 #   - Set loglevel in the ant.record task
@@ -46,22 +49,51 @@ task :setup => NON_VCS_DIRS do
   end
 end
 
-task :compile => :setup do
+# TODO: Always recompiles guessing_strategy.clj
+### Create Rake file tasks of Clojure source, to not recompile if uptodate.
+#
+# A given foo.clj is a dependency of several .class files. For
+# simplicity, we create only the :compile => foo.class => foo.clj Rake
+# dependency chain, because the other generated .class files from
+# foo.clj will generally be as uptodate as the foo.class file.
+def create_clj_tasks(src_dir, dest_dir, dependent_target)
+  `find #{src_dir} -name "*.clj"`.split(/\s+/).each do |src_file|
+    path_fragment = src_file.sub(/#{src_dir}\/(.*)\.clj/, '\1' )
+    obj_file = "#{dest_dir}/#{path_fragment}.class"
+    package_name = path_fragment.gsub("/",".")
+    printf( "obj_file=%s package_name=%s\n", obj_file, package_name )
+
+    # Create the Rake file task
+    file obj_file => [:setup, src_file] do
+      printf( "Building obj_file=%s from src_file=%s\n", obj_file, src_file )
+      system("java -Dclojure.compile.path=#{dest_dir} -cp #{CLOJURE_JAR}:#{dest_dir}:#{src_dir} clojure.lang.Compile #{package_name}")
+    end
+
+    # Add to the inputted Rake target
+    task dependent_target => obj_file
+  end
+end
+create_clj_tasks("src/main/clj", "target/classes", :compile)
+create_clj_tasks("src/test/clj", "target/test-classes", :compile_test)
+
+task :compile_main_java => :setup do
   # Compile Java
   ant.javac :destdir => "target/classes", :includeAntRuntime => false do
     classpath :refid => "hangman.classpath"
     src { pathelement :location => MAIN_SRC_DIR }
   end
-
-  # Compile Clojure
-  system("java -Dclojure.compile.path=target/classes -cp #{CLOJURE_JAR}:target/classes:src/main/clj clojure.lang.Compile hangman.guessing_strategy")
 end
+
+# Compile Java and Clojure
+#
+# NB: the create_clj_tasks function adds Clojure deps
+task :compile => :compile_main_java
 
 task :jar => :compile do
   ant.jar :destfile => "target/hangman.jar", :basedir => "target/classes"
 end
 
-task :compile_test => :setup do
+task :compile_test_java => :setup do
   ant.javac :destdir => "target/test-classes", :includeAntRuntime => false do
     classpath do
       path :refid => "hangman.classpath"
@@ -70,6 +102,11 @@ task :compile_test => :setup do
     src { pathelement :location => TEST_SRC_DIR }
   end
 end
+
+# Compile Java and Clojure test code
+#
+# NB: the create_clj_tasks function adds Clojure deps
+task :compile_test => :compile_test_java
 
 task :test => [:compile, :compile_test] do
   ant.junit :printsummary => true do
