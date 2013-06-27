@@ -27,29 +27,24 @@ JUNIT_JAR = "src/test/lib/junit-4.10.jar"
 
 CLEAN.include "target", "build.log", "hangman.el"
 
-task :default => :jar
+# Make non version control directories up front.
+#
+# We don't make directory creation a Rake file task because a
+# directory's modification time is updated when files are copied to
+# it. This leads to undesired rebuilds for would-be dependents.
+mkdir_p ["target/classes", "target/test-classes"]
 
-# Dirs not under version control, which the build system will create on demand
-NON_VCS_DIRS = ["target/classes", "target/test-classes"]
-NON_VCS_DIRS.each do |dir|
-  file dir do |task_arg|
-    mkdir_p task_arg.name
-  end
+### Basic Ant setup
+ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
+ant.path :id => "hangman.classpath" do
+  pathelement :location => "target/classes"
+  pathelement :location => CLOJURE_JAR
+end
+ant.path :id => "hangman.test.classpath" do
+  pathelement :location => "target/test-classes"
+  pathelement :location => JUNIT_JAR
 end
 
-task :setup => NON_VCS_DIRS do
-  ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
-  ant.path :id => "hangman.classpath" do
-    pathelement :location => "target/classes"
-    pathelement :location => CLOJURE_JAR
-  end
-  ant.path :id => "hangman.test.classpath" do
-    pathelement :location => "target/test-classes"
-    pathelement :location => JUNIT_JAR
-  end
-end
-
-# TODO: Always recompiles guessing_strategy.clj
 ### Create Rake file tasks of Clojure source, to not recompile if uptodate.
 #
 # A given foo.clj is a dependency of several .class files. For
@@ -61,11 +56,9 @@ def create_clj_tasks(src_dir, dest_dir, dependent_target)
     path_fragment = src_file.sub(/#{src_dir}\/(.*)\.clj/, '\1' )
     obj_file = "#{dest_dir}/#{path_fragment}.class"
     package_name = path_fragment.gsub("/",".")
-    printf( "obj_file=%s package_name=%s\n", obj_file, package_name )
 
     # Create the Rake file task
-    file obj_file => [:setup, src_file] do
-      printf( "Building obj_file=%s from src_file=%s\n", obj_file, src_file )
+    file obj_file => src_file do
       system("java -Dclojure.compile.path=#{dest_dir} -cp #{CLOJURE_JAR}:#{dest_dir}:#{src_dir} clojure.lang.Compile #{package_name}")
     end
 
@@ -76,7 +69,7 @@ end
 create_clj_tasks("src/main/clj", "target/classes", :compile)
 create_clj_tasks("src/test/clj", "target/test-classes", :compile_test)
 
-task :compile_main_java => :setup do
+task :compile_main_java do
   # Compile Java
   ant.javac :destdir => "target/classes", :includeAntRuntime => false do
     classpath :refid => "hangman.classpath"
@@ -89,11 +82,7 @@ end
 # NB: the create_clj_tasks function adds Clojure deps
 task :compile => :compile_main_java
 
-task :jar => :compile do
-  ant.jar :destfile => "target/hangman.jar", :basedir => "target/classes"
-end
-
-task :compile_test_java => :setup do
+task :compile_test_java do
   ant.javac :destdir => "target/test-classes", :includeAntRuntime => false do
     classpath do
       path :refid => "hangman.classpath"
@@ -123,9 +112,15 @@ end
 # Export Elisp for importing into Emacs.
 #
 # Primarily for the classpath, of which the Rakefile is the primary source
-file "hangman.el" => ["Rakefile", :setup] do |task_arg|
+file "hangman.el" => "Rakefile" do |task_arg|
   classpath_jvmStyle = ant.project.getReference('hangman.classpath').to_s+":"+ant.project.getReference('hangman.test.classpath').to_s
-  classpath_lispStyle = '(defvar hangman-classpath "'+classpath_jvmStyle.gsub(":", '" "')+'")'
+  classpath_lispStyle = '(defvar hangman-classpath (list "'+classpath_jvmStyle.gsub(":", '" "')+'"))'
   File.open("hangman.el", 'w') { |f| f.write(classpath_lispStyle+"\n") }
 end
+
+task :jar => :compile do
+  ant.jar :destfile => "target/hangman.jar", :basedir => "target/classes"
+end
+
+task :default => :jar
 
