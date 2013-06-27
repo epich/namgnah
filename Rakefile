@@ -15,9 +15,9 @@
 require 'ant'
 require 'rake/clean'
 
-CLOJURE_JAR = "/home/epich/s/sw/clojure-1.5.1/target/clojure-1.5.1.jar"
+CLOJURE_JAR = "/psd15/linux/boreilly/sw/clojure-1.5.1/clojure-1.5.1.jar"
+#CLOJURE_JAR = "/home/epich/s/sw/clojure-1.5.1/target/clojure-1.5.1.jar"
 
-# TODO: Define ANT_HOME to bring it out of parent environment
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
 JUNIT_JAR = "src/test/lib/junit-4.10.jar"
@@ -26,38 +26,43 @@ CLEAN.include "target", "build.log", "hangman.el"
 
 task :default => :jar
 
-# TODO: classes and test-classes dirs, target .jar in target dir
-file "target" do |task_arg|
-  mkdir_p task_arg.name
+# Dirs not under version control, which the build system will create on demand
+NON_VCS_DIRS = ["target/classes", "target/test-classes"]
+NON_VCS_DIRS.each do |dir|
+  file dir do |task_arg|
+    mkdir_p task_arg.name
+  end
 end
 
-task :setup => "target" do
+task :setup => NON_VCS_DIRS do
   ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
   ant.path :id => "hangman.classpath" do
-    pathelement :location => "target"
+    pathelement :location => "target/classes"
     pathelement :location => CLOJURE_JAR
   end
   ant.path :id => "hangman.test.classpath" do
+    pathelement :location => "target/test-classes"
     pathelement :location => JUNIT_JAR
   end
 end
 
 task :compile => :setup do
-  ant.javac :destdir => "target", :includeAntRuntime => false do
+  # Compile Java
+  ant.javac :destdir => "target/classes", :includeAntRuntime => false do
     classpath :refid => "hangman.classpath"
     src { pathelement :location => MAIN_SRC_DIR }
   end
 
-  # TODO: Need to actually create classes dir
+  # Compile Clojure
   system("java -Dclojure.compile.path=target/classes -cp #{CLOJURE_JAR}:target/classes:src/main/clj clojure.lang.Compile hangman.guessing_strategy")
 end
 
 task :jar => :compile do
-  ant.jar :destfile => "hangman.jar", :basedir => "target"
+  ant.jar :destfile => "target/hangman.jar", :basedir => "target/classes"
 end
 
 task :compile_test => :setup do
-  ant.javac :destdir => "target", :includeAntRuntime => false do
+  ant.javac :destdir => "target/test-classes", :includeAntRuntime => false do
     classpath do
       path :refid => "hangman.classpath"
       path :refid => "hangman.test.classpath"
