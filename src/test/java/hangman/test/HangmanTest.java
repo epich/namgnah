@@ -39,7 +39,8 @@ public class HangmanTest {
 
   @Test
   public void testGuess() {
-    StrategyImpl.foo(666);
+    // TODO
+    //StrategyImpl.foo(666);
   }
 }
 

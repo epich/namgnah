@@ -7,8 +7,14 @@
 # This also compiles Clojure code, using Rake's dependency engine and
 # invoking clojure.lang.Compile directly.
 #
-# See build.sh for a convenient way to invoke this. eg
-# './build.sh test' runs the tests.
+# Example usage:
+#   - Run the tests: rake test
+#   - Play the game: rake play WORD=word GUESSES=5
+#       - Default WORD is randomly chosen from words.txt
+#       - Default GUESSES is 5
+#
+# See build.sh provides an alternative way to call Rake assuming jruby
+# is available.
 #
 # Debugging notes:
 #   - Set loglevel in the ant.record task
@@ -61,7 +67,7 @@ def create_clj_tasks(src_dir, dest_dir, dependent_target, classpath_arg)
     # Create the Rake file task
     file obj_file => src_file do
       # The downside of this is starting a JVM for each source
-      # file. Not a big deal for a small program like this, but would
+      # file. Not a big deal for a small project like this, but would
       # be good to improve if there were more .clj files to
       # compile.
       system("java -Dclojure.compile.path=#{dest_dir} -cp :#{classpath_arg}:#{src_dir} clojure.lang.Compile #{package_name}")
@@ -71,14 +77,15 @@ def create_clj_tasks(src_dir, dest_dir, dependent_target, classpath_arg)
     task dependent_target => obj_file
   end
 end
-create_clj_tasks("src/main/clj",
-                 "target/classes",
-                 :compile,
-                 ant.project.getReference('hangman.classpath'))
-create_clj_tasks("src/test/clj",
-                 "target/test-classes",
-                 :compile_test,
-                 ant.project.getReference('hangman.test.classpath'))
+# TODO: Use Clojure?
+# create_clj_tasks("src/main/clj",
+#                  "target/classes",
+#                  :compile,
+#                  ant.project.getReference('hangman.classpath'))
+# create_clj_tasks("src/test/clj",
+#                  "target/test-classes",
+#                  :compile_test,
+#                  ant.project.getReference('hangman.test.classpath'))
 
 task :compile_main_java do
   ant.javac :srcdir => MAIN_SRC_DIR,
@@ -113,12 +120,35 @@ task :test => [:jar, :jar_test] do
     end
   end
 
+  # TODO
   # Now the Clojure based test
+  # require 'target/hangman.jar'
+  # require 'target/hangman-test.jar'
+  # require CLOJURE_JAR
+  # # Call from JRuby straight into Clojure
+  # Java::hangman::test::StrategyTest.runTest
+end
+
+def choose_random_word
+  printf("Choosing random word from words.txt to play with.\n")
+  File.readlines("words.txt").sample.strip
+end
+
+GUESSES_DEFAULT = 5
+desc "Play Hangman with the provided strategy implementation. Optionally
+specify WORD (default: random) and GUESSES (default: #{GUESSES_DEFAULT})
+in the environment. eg: 'rake play WORD=food GUESSES=6'"
+task :play => :jar do
+  # Note: We're relying on the implementation to error check that word is in the words.txt.
+  # Unless WORD is unspecified, in which case the user wants a random word.
+  the_word = ENV.key?('WORD') ? ENV['WORD'] : choose_random_word
+  # Only checking for undefined. If user passes something silly, let it fail Integer conversion.
+  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : GUESSES_DEFAULT
+  printf( "Playing Hangman with WORD=%s and allowed GUESSES=%s\n", the_word, num_guesses )
   require 'target/hangman.jar'
-  require 'target/hangman-test.jar'
-  require CLOJURE_JAR
-  # Call from JRuby straight into Clojure
-  Java::hangman::test::StrategyTest.runTest
+  printf( "Score: %s\n",
+          Java::hangman::Play.run(Java::hangman::HangmanGame.new(the_word, num_guesses),
+                                  Java::hangman::StrategyImpl.new) )
 end
 
 # Export Elisp for importing into Emacs.
