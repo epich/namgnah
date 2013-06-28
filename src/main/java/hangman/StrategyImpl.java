@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Set;
 
 /** TODO
+ *
+ * This assumes HangmanGame returns Character as upper case, as part
+ * of the software contract.
  */
 public class StrategyImpl implements GuessingStrategy {
   private List<String> candidateWords_;
@@ -35,10 +38,10 @@ public class StrategyImpl implements GuessingStrategy {
                      Set<Character> incorrectChars)
     {
       for( Character charI : correctChars ) {
-        charStats_[code2Index(Character.toUpperCase(charI))] = -1;
+        charStats_[code2Index(charI)] = -1;
       }
       for( Character charI : incorrectChars ) {
-        charStats_[code2Index(Character.toUpperCase(charI))] = -1;
+        charStats_[code2Index(charI)] = -1;
       }
     }
 
@@ -63,21 +66,28 @@ public class StrategyImpl implements GuessingStrategy {
     final BufferedReader dictReader = new BufferedReader(new InputStreamReader(dictionary));
     String line;
     while( (line = dictReader.readLine())!=null ) {
-      if( line.length()==wordLen ) candidateWords_.add(line);
+      if( line.length()==wordLen ) candidateWords_.add(line.toUpperCase());
     }
   }
 
   private void updateCandidateWords(HangmanGame game) {
     final List<String> newCandidates = new LinkedList<String>();
     final String gameWord = game.getGuessedSoFar();
+    final Set<Character> incorrectChars = game.getIncorrectlyGuessedLetters();
     for( String wordI : candidateWords_ ) {
       assert wordI.length()==gameWord.length();
       boolean wordMatches = true; // Until proven otherwise
       for( int charI = 0; charI<gameWord.length(); ++charI ) {
+        if( incorrectChars.contains(wordI.charAt(charI)) ) {
+          wordMatches = false;
+          break;
+        }
+
         if( gameWord.charAt(charI)==HangmanGame.MYSTERY_LETTER ) {
           continue;
         }
-        if( Character.toUpperCase(wordI.charAt(charI))!=Character.toUpperCase(gameWord.charAt(charI)) )
+
+        if( wordI.charAt(charI)!=gameWord.charAt(charI) )
         {
           wordMatches = false;
           break;
@@ -96,14 +106,13 @@ public class StrategyImpl implements GuessingStrategy {
     /// The strategy assumes all words are equally likely, so we do not count a letter
     /// more than once for a given candidate word.
     //
-    CharStats charStats = new CharStats(game.getCorrectlyGuessedLetters(),
-                                        game.getIncorrectlyGuessedLetters());
+    final CharStats charStats = new CharStats(game.getCorrectlyGuessedLetters(),
+                                              game.getIncorrectlyGuessedLetters());
     int bestChar = A_ASCII_CODE;
     for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
       if( charStats.getCount(charI)<0 ) continue;
       for( String wordI : candidateWords_ ) {
-        if( -1!=wordI.indexOf(Character.toLowerCase(charI))
-            || -1!=wordI.indexOf(Character.toUpperCase(charI)))
+        if( -1!=wordI.indexOf(charI) )
         {
           charStats.incrementCount(charI);
         }
@@ -113,6 +122,14 @@ public class StrategyImpl implements GuessingStrategy {
       }
     }
     System.out.println("bestChar="+(char)bestChar+" number candidates: "+candidateWords_.size()+" charStats="+charStats.toString());
+    if( candidateWords_.size()<20 ) {
+      for( String wordI : candidateWords_ ) {
+        System.out.println("  Candidate: "+wordI);
+      }
+    }
+    for( Character charI : game.getIncorrectlyGuessedLetters() ) {
+      System.out.println("  Incorrect char: "+charI);
+    }
     return new GuessLetter((char)bestChar);
 
     // TODO: Call to verify we're not duplicating a guess: public Set<Character> getAllGuessedLetters()
