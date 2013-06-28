@@ -6,9 +6,6 @@ import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import clojure.lang.RT;
-import clojure.lang.Var;
-
 import hangman.HangmanGame;
 import hangman.GuessLetter;
 import hangman.GuessWord;
@@ -40,7 +37,6 @@ public class HangmanTest {
   @Test
   public void testGuess() {
     // TODO
-    //StrategyImpl.foo(666);
   }
 }
 
