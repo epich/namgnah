@@ -18,8 +18,8 @@
 require 'ant'
 require 'rake/clean'
 
-CLOJURE_JAR = "/psd15/linux/boreilly/sw/clojure-1.5.1/clojure-1.5.1.jar"
-#CLOJURE_JAR = "/home/epich/s/sw/clojure-1.5.1/target/clojure-1.5.1.jar"
+#CLOJURE_JAR = "/psd15/linux/boreilly/sw/clojure-1.5.1/clojure-1.5.1.jar"
+CLOJURE_JAR = "/home/epich/s/sw/clojure-1.5.1/target/clojure-1.5.1.jar"
 
 MAIN_SRC_DIR = "src/main/java"
 TEST_SRC_DIR = "src/test/java"
@@ -37,12 +37,13 @@ mkdir_p ["target/classes", "target/test-classes"]
 ### Basic Ant setup
 ant.record :name => "build.log", :loglevel => "verbose", :action => "start"
 ant.path :id => "hangman.classpath" do
-  pathelement :location => "target/classes"
   pathelement :location => CLOJURE_JAR
+  pathelement :location => "target/classes"
 end
 ant.path :id => "hangman.test.classpath" do
-  pathelement :location => "target/test-classes"
+  path :refid => "hangman.classpath"
   pathelement :location => JUNIT_JAR
+  pathelement :location => "target/test-classes"
 end
 
 ### Create Rake file tasks of Clojure source, to not recompile if uptodate.
@@ -51,7 +52,7 @@ end
 # simplicity, we create only the :compile => foo.class => foo.clj Rake
 # dependency chain, because the other generated .class files from
 # foo.clj will generally be as uptodate as the foo.class file.
-def create_clj_tasks(src_dir, dest_dir, dependent_target)
+def create_clj_tasks(src_dir, dest_dir, dependent_target, classpath_arg)
   `find #{src_dir} -name "*.clj"`.split(/\s+/).each do |src_file|
     path_fragment = src_file.sub(/#{src_dir}\/(.*)\.clj/, '\1' )
     obj_file = "#{dest_dir}/#{path_fragment}.class"
@@ -59,22 +60,31 @@ def create_clj_tasks(src_dir, dest_dir, dependent_target)
 
     # Create the Rake file task
     file obj_file => src_file do
-      system("java -Dclojure.compile.path=#{dest_dir} -cp #{CLOJURE_JAR}:#{dest_dir}:#{src_dir} clojure.lang.Compile #{package_name}")
+      # The downside of this is starting a JVM for each source
+      # file. Not a big deal for a small program like this, but would
+      # be good to improve if there were more .clj files to
+      # compile.
+      system("java -Dclojure.compile.path=#{dest_dir} -cp :#{classpath_arg}:#{src_dir} clojure.lang.Compile #{package_name}")
     end
 
     # Add to the inputted Rake target
     task dependent_target => obj_file
   end
 end
-create_clj_tasks("src/main/clj", "target/classes", :compile)
-create_clj_tasks("src/test/clj", "target/test-classes", :compile_test)
+create_clj_tasks("src/main/clj",
+                 "target/classes",
+                 :compile,
+                 ant.project.getReference('hangman.classpath'))
+create_clj_tasks("src/test/clj",
+                 "target/test-classes",
+                 :compile_test,
+                 ant.project.getReference('hangman.test.classpath'))
 
 task :compile_main_java do
-  # Compile Java
-  ant.javac :destdir => "target/classes", :includeAntRuntime => false do
-    classpath :refid => "hangman.classpath"
-    src { pathelement :location => MAIN_SRC_DIR }
-  end
+  ant.javac :srcdir => MAIN_SRC_DIR,
+            :destdir => "target/classes",
+            :classpathref => "hangman.classpath",
+            :includeAntRuntime => false
 end
 
 # Compile Java and Clojure
@@ -83,13 +93,10 @@ end
 task :compile => :compile_main_java
 
 task :compile_test_java do
-  ant.javac :destdir => "target/test-classes", :includeAntRuntime => false do
-    classpath do
-      path :refid => "hangman.classpath"
-      path :refid => "hangman.test.classpath"
-    end
-    src { pathelement :location => TEST_SRC_DIR }
-  end
+  ant.javac :srcdir => TEST_SRC_DIR,
+            :destdir => "target/test-classes",
+            :classpathref => "hangman.test.classpath",
+            :includeAntRuntime => false
 end
 
 # Compile Java and Clojure test code
@@ -97,16 +104,21 @@ end
 # NB: the create_clj_tasks function adds Clojure deps
 task :compile_test => :compile_test_java
 
-task :test => [:compile, :compile_test] do
-  ant.junit :printsummary => true do
-    classpath do
-      path :refid => "hangman.classpath"
-      path :refid => "hangman.test.classpath"
-    end
+task :test => [:jar, :jar_test] do
+  ant.junit do
+    classpath :refid => "hangman.test.classpath"
     batchtest do
+      formatter :type => "plain", :usefile => "false"
       fileset :dir => TEST_SRC_DIR, :includes => '**/*Test.java'
     end
   end
+
+  # Now the Clojure based test
+  require 'target/hangman.jar'
+  require 'target/hangman-test.jar'
+  require CLOJURE_JAR
+  # Call from JRuby straight into Clojure
+  Java::hangman::test::StrategyTest.runTest
 end
 
 # Export Elisp for importing into Emacs.
@@ -120,6 +132,9 @@ end
 
 task :jar => :compile do
   ant.jar :destfile => "target/hangman.jar", :basedir => "target/classes"
+end
+task :jar_test => :compile_test do
+  ant.jar :destfile => "target/hangman-test.jar", :basedir => "target/test-classes"
 end
 
 task :default => :jar

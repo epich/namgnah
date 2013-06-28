@@ -6,9 +6,13 @@ import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import clojure.lang.RT;
+import clojure.lang.Var;
+
 import hangman.HangmanGame;
 import hangman.GuessLetter;
 import hangman.GuessWord;
+import hangman.StrategyImpl;
 
 /**
  *
@@ -31,6 +35,11 @@ public class HangmanTest {
     System.out.println(game);
     new GuessWord("factual").makeGuess(game);
     System.out.println(game);
+  }
+
+  @Test
+  public void testGuess() {
+    StrategyImpl.foo(666);
   }
 }
 
