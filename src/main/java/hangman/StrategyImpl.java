@@ -67,11 +67,29 @@ public class StrategyImpl implements GuessingStrategy {
     }
   }
 
-  public Guess nextGuess(HangmanGame game) {
-    /// Update candidate words
-    // game.getCorrectlyGuessedLetters()
-    // game.getIncorrectlyGuessedLetters()
+  private void updateCandidateWords(HangmanGame game) {
+    final List<String> newCandidates = new LinkedList<String>();
+    final String gameWord = game.getGuessedSoFar();
+    for( String wordI : candidateWords_ ) {
+      assert wordI.length()==gameWord.length();
+      boolean wordMatches = true; // Until proven otherwise
+      for( int charI = 0; charI<gameWord.length(); ++charI ) {
+        if( gameWord.charAt(charI)==HangmanGame.MYSTERY_LETTER ) {
+          continue;
+        }
+        if( Character.toUpperCase(wordI.charAt(charI))!=Character.toUpperCase(gameWord.charAt(charI)) )
+        {
+          wordMatches = false;
+          break;
+        }
+      }
+      if( wordMatches ) newCandidates.add(wordI);
+    }
+    candidateWords_ = newCandidates;
+  }
 
+  public Guess nextGuess(HangmanGame game) {
+    updateCandidateWords(game);
 
     /// Calculate statistics of letter frequencies
     ///
