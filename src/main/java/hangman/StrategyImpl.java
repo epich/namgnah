@@ -98,47 +98,78 @@ public class StrategyImpl implements GuessingStrategy {
     candidateWords_ = newCandidates;
   }
 
-    // Consider the case where we have a small number of candidate
-    // words to a large number of mystery letters. Assume for the
-    // moment we have plenty of remaining guesses allowed. In that case,
-    // to maximize our score, we want to choose the character that best narrows down the candidates.
-    // This means choosing the char whose word count is closest to one half the number of candidate words.
-    //
-    // On the other hand, if we're nearly out of guesses, we want to be more conservative
-    // and choose the char that is most likely to yield a correct letter guess.
-    // This means choosing the char present in the most words.
-    //
-    // We choose the letter that is closest to half of the remaining candidate words.
-    // A tie (eg 10 candidates and char counts of 4 and 6 and no 5) is broken by
-    // choosing the higher.
+  // TODO revisit doc
+  //
+  // Consider the case where we have a small number of candidate
+  // words to a large number of mystery letters. Assume for the
+  // moment we have plenty of remaining guesses allowed. In that case,
+  // to maximize our score, we want to choose the character that best narrows down the candidates.
+  // This means choosing the char whose word count is closest to one half the number of candidate words.
+  //
+  // On the other hand, if we're nearly out of guesses, we want to be more conservative
+  // and choose the char that is most likely to yield a correct letter guess.
+  // This means choosing the char present in the most words.
+  //
+  // We choose the letter that is closest to half of the remaining candidate words.
+  // A tie (eg 10 candidates and char counts of 4 and 6 and no 5) is broken by
+  // choosing the higher.
   private char chooseChar(HangmanGame game, CharStats charStats)
   {
-      if( charStats.getCount(bestChar) < charStats.getCount(charI) ) {
-        bestChar = charI;
+    // We'll either try to halve the candidate words, or try for the
+    // most probable correct letter
+    int halvingChar = A_ASCII_CODE;
+    int highestChar = A_ASCII_CODE;
+    for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
+      if( charStats.getCount(highestChar) < charStats.getCount(charI) )
+      {
+        highestChar = charI;
       }
-
-    // TODO: Don't think I need this value, base the halving strategy simply on wrong guesses left and stepsWhenHalving
-    final int remainingMysteryLetters = Collections.frequency(Arrays.asList(game.getGuessedSoFar().toCharArray()),
-                                                              HangmanGame.MYSTERY_LETTER);
-    // Steps left if candidateWords_ could be halved at each subsequent guess.
-    // TODO: Take worst case candidateWords_ size if halfChar is chosen and doesn't reduce by half.
-    final int stepsWhenHalving = 1 + Math.log(candidateWords_.size())/Math.log(2);
-    // We could expect if we try to halve the candidate words that we'll guess wrong
-    // half the time.
-    // 
-
-    if( stepsWhenHalving<=remainingMysteryLetters ) {
-      game.numWrongGuessesRemaining()
+      // Multiply by 2 to keep integers whole. We're still measuring from the middle,
+      // just in other (consistent) units.
+      final int charI_fromMid = Math.abs(2*charStats.getCount(charI)-candidateWords_.size());
+      final int halvingChar_fromMid = Math.abs(2*charStats.getCount(halvingChar)-candidateWords_.size());
+      // Pick between charI and halvingChar. Break tie by choosing the higher count one.
+      if( charI_fromMid < halvingChar_fromMid
+          || (charI_fromMid==halvingChar_fromMid
+              && charStats.getCount(halvingChar)<charStats.getCount(charI)) )
+      {
+        halvingChar = charI;
+      }
     }
+
+    // Some performance notes measuring average score ('rake brute STEP_SIZE=100'):
+    //   If always return halvingChar from here:  9.097926267281107
+    //   If always return highestChar from here:  7.523041474654378
+    //   If allowed to proceed with current code: 7.372695852534562
+
+    // Floor of log base 2 of the number of candidate words
+    //
+    // Estimates guesses if candidates could be halved for subsequent
+    // guesses (speculative).
+    final int wordsLg = 31 - Integer.numberOfLeadingZeros(candidateWords_.size());
+    if( wordsLg<=game.numWrongGuessesRemaining() )
+    {
+      return (char)halvingChar;
+    }
+    return (char)highestChar;
   }
 
   public Guess nextGuess(HangmanGame game) {
     updateCandidateWords(game);
-    // We've found the one
-    if( candidateWords_.size()==1 ) TODO;
-    // If there's two left, choosing by word or by char has the same information value,
-    // but guessing by word will potentially give a better score.
-    if( candidateWords_.size()==2 && 0<game.numWrongGuessesRemaining() ) TODO;
+
+    /// Once candidates get low, start guessing by words
+    if( candidateWords_.size()==0 ) return null;
+    // When there's a small number of words left, the potential for lower
+    // score is greater, since guessing a correct word doesn't count for
+    // a point while guessing a correct letter does.
+    //
+    // Some performance notes measuring average score ('rake brute STEP_SIZE=100'):
+    //   candidateWords_.size()<2: 7.808755760368664
+    //   candidateWords_.size()<3: 7.61671469740634
+    //   candidateWords_.size()<4: 7.774193548387097
+    // Because of tweaks elsewhere in the algorithm, these measurements
+    // are not reproducible exactly.
+    if( candidateWords_.size()<3 ) return new GuessWord(candidateWords_.remove(0));
 
     /// Calculate statistics of letter frequencies
     ///
@@ -159,15 +190,15 @@ public class StrategyImpl implements GuessingStrategy {
       }
     }
     final char chosenChar = chooseChar(game, charStats);
+
+    // TODO tmp
     System.out.println("chosenChar="+chosenChar+" number candidates: "+candidateWords_.size()+" charStats="+charStats.toString());
     if( candidateWords_.size()<20 ) {
       for( String wordI : candidateWords_ ) {
         System.out.println("  Candidate: "+wordI);
       }
     }
-    for( Character charI : game.getIncorrectlyGuessedLetters() ) {
-      System.out.println("  Incorrect char: "+charI);
-    }
+
     return new GuessLetter(chosenChar);
 
     // TODO: Call to verify we're not duplicating a guess: public Set<Character> getAllGuessedLetters()

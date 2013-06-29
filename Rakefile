@@ -103,6 +103,15 @@ task :play => :jar do
                                                           game.getClass().getClassLoader().getResourceAsStream("words.txt")))
 end
 
+task :brute => [:jar, :jar_test] do
+  require 'target/hangman.jar'
+  require 'target/hangman-test.jar'
+  # Step size 100 is a few minutes, can be sit through
+  step_size = ENV.key?('STEP_SIZE') ? Integer(ENV['STEP_SIZE']) : 100
+  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : GUESSES_DEFAULT
+  Java::hangman::test::HangmanTest.runBrute(step_size, num_guesses)
+end
+
 # Export Elisp for importing into Emacs.
 #
 # Primarily for the classpath, of which the Rakefile is the primary source
