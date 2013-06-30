@@ -12,15 +12,27 @@ import java.util.Set;
  * Implementation of the strategy for guessing letters in the
  * HangmanGame.
  *
- * The only state maintained between guesses is a list of candidate
- * words.
+ * The strategy narrows down candidate words based on information from
+ * the game and the previous list of candidate words. The strategy for
+ * choosing a char is interesting and documented with the chooseChar
+ * method.
  *
- * The strategy determines the number of candidate words which
- * unguessed chars exist in. It uses that and information from the
- * game to formulate a guess.
+ * The strategy earns an average HangmanGame score of
+ * 7.222350230414746 as measured by 'rake brute STEP_SIZE=100'. Note
+ * however, an alternative implementation was tried which earned an
+ * average score of 7.194700460829493 but ran 70% slower and made the
+ * code slightly more complex.
  *
- * The strategy for choosing a char is interesting and documented with
- * the chooseChar method.
+ * That alternate implementation had CharStats determine the word
+ * count for each char (as it does now) and the char's overall count
+ * in the remaining candidate words. The only way the strategy used
+ * the overall count was as the last resort tie breaker in
+ * chooseChar's determination of highestChar and reductionChar (see
+ * chooseChar documentation). The tie was broken in favor of the char
+ * with highest overall count, because the potential to reveal more
+ * information for subsequent candidate word elimination is a little
+ * greater. If we decided we liked the tradeoff, this could be
+ * reimplemented.
  *
  * This class assumes HangmanGame returns Character as upper case, as
  * part of the software contract.
@@ -39,7 +51,7 @@ public class StrategyImpl implements GuessingStrategy {
    */
   private class CharStats {
     // Contains counts of the number of candidate words that contain
-    // the character. eg charStats_[(int)'A'] would return the count
+    // the character. eg charWordCounts_[(int)'A'] would return the count
     // of words containing at least one letter A. The strategy
     // assumes all words are equally likely, so we do not count a
     // letter more than once for a given candidate word.
@@ -49,7 +61,7 @@ public class StrategyImpl implements GuessingStrategy {
     //
     // A value of -1 removes the char from consideration, typically
     // because it is already guessed.
-    private int[] charStats_ = new int[NUM_LETTERS];
+    private int[] charWordCounts_ = new int[NUM_LETTERS];
 
     private int code2Index(int charCode) { return charCode-A_ASCII_CODE; }
 
@@ -62,10 +74,10 @@ public class StrategyImpl implements GuessingStrategy {
                      Set<Character> incorrectChars)
     {
       for( Character charI : correctChars ) {
-        charStats_[code2Index(charI)] = -1;
+        charWordCounts_[code2Index(charI)] = -1;
       }
       for( Character charI : incorrectChars ) {
-        charStats_[code2Index(charI)] = -1;
+        charWordCounts_[code2Index(charI)] = -1;
       }
     }
 
@@ -75,14 +87,14 @@ public class StrategyImpl implements GuessingStrategy {
       for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
         statsB.append((char)charI);
         statsB.append(":");
-        statsB.append(charStats_[code2Index(charI)]);
+        statsB.append(charWordCounts_[code2Index(charI)]);
         statsB.append(" ");
       }
       return statsB.toString();
     }
 
-    public int getCount(int charCode) { return charStats_[code2Index(charCode)]; }
-    public void incrementCount(int charCode) { charStats_[code2Index(charCode)] += 1; }
+    public int getWordCount(int charCode) { return charWordCounts_[code2Index(charCode)]; }
+    public void incrementWordCount(int charCode) { charWordCounts_[code2Index(charCode)] += 1; }
   }
 
   /**
@@ -173,7 +185,7 @@ public class StrategyImpl implements GuessingStrategy {
    * is precisely this value and was tuned
    * experimentally using:
    *   rake brute STEP_SIZE=100
-   * to compute average scores on 1% of the dictionary. (The Rakefile
+   * which computes average scores on 1% of the dictionary. (The Rakefile
    * documents the Rake build target further.)
    *
    * The final matter is quantifying when the wrong guesses remaining
@@ -181,9 +193,6 @@ public class StrategyImpl implements GuessingStrategy {
    * the goal of the reductionChar is to reduce candidate words by
    * half on average, we compare the log base 2 of the remaining
    * candidate words to the wrong guesses remaining.
-   *
-   * Currently, 'rake brute STEP_SIZE=100' shows an average score of:
-   *   7.222350230414746
    */
   private char chooseChar(HangmanGame game, CharStats charStats)
   {
@@ -197,21 +206,22 @@ public class StrategyImpl implements GuessingStrategy {
     int reductionChar = Z_ASCII_CODE;
     int highestChar = Z_ASCII_CODE;
     // Measured better average scores when breaking ties in favor of
-    // chars closer to Z than A. So iterate Z to A here.
+    // chars closer to Z than A.
     for( int charI = Z_ASCII_CODE; A_ASCII_CODE<=charI; --charI ) {
-      if( charStats.getCount(highestChar) < charStats.getCount(charI) )
+      if( charStats.getWordCount(highestChar) < charStats.getWordCount(charI) )
       {
         highestChar = charI;
       }
 
       final double reductionPoint = reductionProportion*(double)candidateWords_.size();
-      final double charI_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(charI));
-      final double reductionChar_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(reductionChar));
+      final double charI_fromReductionPoint = Math.abs(reductionPoint-charStats.getWordCount(charI));
+      final double reductionChar_fromReductionPoint = Math.abs(reductionPoint-charStats.getWordCount(reductionChar));
       // Choose the one closest to reductionPoint
       if( charI_fromReductionPoint < reductionChar_fromReductionPoint
-          // Break a tie by choosing the one with the higher word count.
+          // Break a tie when the two are on opposite sides of reductionPoint.
+          // Choose the one with the higher word count.
           || (charI_fromReductionPoint==reductionChar_fromReductionPoint
-              && charStats.getCount(reductionChar)<charStats.getCount(charI)) )
+              && charStats.getWordCount(reductionChar)<charStats.getWordCount(charI)) )
       {
         reductionChar = charI;
       }
@@ -225,10 +235,9 @@ public class StrategyImpl implements GuessingStrategy {
 
     /// Determine whether to use reductionChar or highestChar
     //
-    // Floor of log base 2 of the number of candidate words
-    //
-    // Estimates guesses left if candidates could be halved for all subsequent
-    // guesses (speculative).
+    // Floor of log base 2 of the number of candidate words estimates
+    // guesses left if candidates could be halved for all subsequent
+    // guesses.
     final int wordsLg = 31 - Integer.numberOfLeadingZeros(candidateWords_.size());
     if( wordsLg<=game.numWrongGuessesRemaining() )
     {
@@ -266,11 +275,11 @@ public class StrategyImpl implements GuessingStrategy {
     final CharStats charStats = new CharStats(game.getCorrectlyGuessedLetters(),
                                               game.getIncorrectlyGuessedLetters());
     for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
-      if( charStats.getCount(charI)<0 ) continue;
+      if( charStats.getWordCount(charI)<0 ) continue;
       for( String wordI : candidateWords_ ) {
         if( -1!=wordI.indexOf(charI) )
         {
-          charStats.incrementCount(charI);
+          charStats.incrementWordCount(charI);
         }
       }
     }

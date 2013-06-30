@@ -24,7 +24,15 @@ import hangman.StrategyImpl;
  */
 @RunWith(JUnit4.class)
 public class HangmanTest {
-  /** TODO
+  /** Play the HangmanGame over most or all words in the dictionary.
+   *
+   * This is not a part of the automated test suite, because of its
+   * long runtime.
+   *
+   * @param stepSize step through the dictionary, playing the HangmanGame
+   * for every stepSize-th word. eg stepSize==50 plays the game with 2%
+   * of all the dictionary words.
+   * @param numGuesses is the number of wrong guesses allowed.
    */
   public static void runBrute(int stepSize, int numGuesses) throws IOException
   {
@@ -40,7 +48,7 @@ public class HangmanTest {
     }
 
     /// Play the game for each element of dictL, display info
-    long scoreSum = 0;
+    int scoreSum = 0;
     int gamesPlayed = 0;
     for( String wordI : dictL ) {
       scoreSum += Play.run(new HangmanGame(wordI, numGuesses),

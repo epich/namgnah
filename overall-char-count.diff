@@ -1,0 +1,117 @@
+diff --git a/src/main/java/hangman/StrategyImpl.java b/src/main/java/hangman/StrategyImpl.java
+index e00e50e..d621748 100644
+--- a/src/main/java/hangman/StrategyImpl.java
++++ b/src/main/java/hangman/StrategyImpl.java
+@@ -39,7 +39,7 @@ public class StrategyImpl implements GuessingStrategy {
+    */
+   private class CharStats {
+     // Contains counts of the number of candidate words that contain
+-    // the character. eg charStats_[(int)'A'] would return the count
++    // the character. eg charWordCount_[(int)'A'] would return the count
+     // of words containing at least one letter A. The strategy
+     // assumes all words are equally likely, so we do not count a
+     // letter more than once for a given candidate word.
+@@ -49,7 +49,10 @@ public class StrategyImpl implements GuessingStrategy {
+     //
+     // A value of -1 removes the char from consideration, typically
+     // because it is already guessed.
+-    private int[] charStats_ = new int[NUM_LETTERS];
++    private int[] charWordCount_ = new int[NUM_LETTERS];
++
++    //TODO
++    private int[] charOverallCount_ = new int[NUM_LETTERS];
+ 
+     private int code2Index(int charCode) { return charCode-A_ASCII_CODE; }
+ 
+@@ -62,27 +65,33 @@ public class StrategyImpl implements GuessingStrategy {
+                      Set<Character> incorrectChars)
+     {
+       for( Character charI : correctChars ) {
+-        charStats_[code2Index(charI)] = -1;
++        charWordCount_[code2Index(charI)] = -1;
++        charOverallCount_[code2Index(charI)] = -1;
+       }
+       for( Character charI : incorrectChars ) {
+-        charStats_[code2Index(charI)] = -1;
++        charWordCount_[code2Index(charI)] = -1;
++        charOverallCount_[code2Index(charI)] = -1;
+       }
+     }
+ 
+-    /** Convert char statistics to string, for debugging. */
++    /** Convert char word counts to string, for debugging. */
+     public String toString() {
+       StringBuilder statsB = new StringBuilder();
+       for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
+         statsB.append((char)charI);
+         statsB.append(":");
+-        statsB.append(charStats_[code2Index(charI)]);
+-        statsB.append(" ");
++        statsB.append(charWordCount_[code2Index(charI)]);
++        statsB.append("(");
++        statsB.append(charOverallCount_[code2Index(charI)]);
++        statsB.append(") ");
+       }
+       return statsB.toString();
+     }
+ 
+-    public int getCount(int charCode) { return charStats_[code2Index(charCode)]; }
+-    public void incrementCount(int charCode) { charStats_[code2Index(charCode)] += 1; }
++    public int getWordCount(int charCode) { return charWordCount_[code2Index(charCode)]; }
++    public void incrementWordCount(int charCode) { charWordCount_[code2Index(charCode)] += 1; }
++    public int getOverallCount(int charCode) { return charOverallCount_[code2Index(charCode)]; }
++    public void incrementOverallCount(int charCode) { charOverallCount_[code2Index(charCode)] += 1; }
+   }
+ 
+   /**
+@@ -199,19 +208,24 @@ public class StrategyImpl implements GuessingStrategy {
+     // Measured better average scores when breaking ties in favor of
+     // chars closer to Z than A. So iterate Z to A here.
+     for( int charI = Z_ASCII_CODE; A_ASCII_CODE<=charI; --charI ) {
+-      if( charStats.getCount(highestChar) < charStats.getCount(charI) )
++      if( charStats.getWordCount(highestChar) < charStats.getWordCount(charI)
++          || (charStats.getWordCount(highestChar)==charStats.getWordCount(charI)
++              && charStats.getOverallCount(highestChar)<charStats.getOverallCount(charI)) )
+       {
+         highestChar = charI;
+       }
+ 
+       final double reductionPoint = reductionProportion*(double)candidateWords_.size();
+-      final double charI_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(charI));
+-      final double reductionChar_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(reductionChar));
++      final double charI_fromReductionPoint = Math.abs(reductionPoint-charStats.getWordCount(charI));
++      final double reductionChar_fromReductionPoint = Math.abs(reductionPoint-charStats.getWordCount(reductionChar));
+       // Choose the one closest to reductionPoint
+       if( charI_fromReductionPoint < reductionChar_fromReductionPoint
+-          // Break a tie by choosing the one with the higher word count.
++          // Break a tie when on opposite sides of reductionPoint: choose the one with the higher word count
++          || (charI_fromReductionPoint==reductionChar_fromReductionPoint
++              && charStats.getWordCount(reductionChar)<charStats.getWordCount(charI))
+           || (charI_fromReductionPoint==reductionChar_fromReductionPoint
+-              && charStats.getCount(reductionChar)<charStats.getCount(charI)) )
++              && charStats.getWordCount(reductionChar)==charStats.getWordCount(charI)
++              && charStats.getOverallCount(reductionChar)<charStats.getOverallCount(charI)) )
+       {
+         reductionChar = charI;
+       }
+@@ -266,12 +280,16 @@ public class StrategyImpl implements GuessingStrategy {
+     final CharStats charStats = new CharStats(game.getCorrectlyGuessedLetters(),
+                                               game.getIncorrectlyGuessedLetters());
+     for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
+-      if( charStats.getCount(charI)<0 ) continue;
++      if( charStats.getWordCount(charI)<0 ) continue;
+       for( String wordI : candidateWords_ ) {
+-        if( -1!=wordI.indexOf(charI) )
+-        {
+-          charStats.incrementCount(charI);
++        int charCountInWord = 0;
++        for( char wordCharI : wordI.toCharArray() ) {
++          if( (int)Character.toUpperCase(wordCharI)==charI ) {
++            ++charCountInWord;
++            charStats.incrementOverallCount(charI);
++          }
+         }
++        if( 0<charCountInWord ) charStats.incrementWordCount(charI);
+       }
+     }
+     final char chosenChar = chooseChar(game, charStats);
