@@ -7,8 +7,8 @@ import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
 
+import static org.junit.Assert.*;
 import org.junit.Test;
-import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -65,22 +65,61 @@ public class HangmanTest {
   // TODO: Test a Unicode character
   // TODO: Test word not in dictionary
 
+  private int countMysteryLetters(String word) {
+    int returnCount = 0;
+    for( char charI : word.toCharArray() ) {
+      if( Character.toUpperCase(charI)==HangmanGame.MYSTERY_LETTER ) ++returnCount;
+    }
+    return returnCount;
+  }
+
   @Test
-  public void factualExample() {
-    HangmanGame game = new HangmanGame("factual", 4); // secret word is factual, 4 wrong guesses are allowed
-    System.out.println(game);
+  public void testGame() {
+    final String secretWord = "factual";
+    final int maxWrongGuesses = 4;
+    // secret word is factual, 4 wrong guesses are allowed
+    final HangmanGame game = new HangmanGame(secretWord, maxWrongGuesses);
+
+    /// Assert game properties
+    class GameVerifier {
+      public void verify(int expectedScore,
+                         HangmanGame.Status expectedStatus,
+                         int expectedWrongGuessesMade,
+                         int expectedMysteryLetters,
+                         int expectedCorrectLetters,
+                         int expectedIncorrectLetters,
+                         int expectedIncorrectWords)
+      {
+        assertEquals(expectedScore, game.currentScore());
+        assertEquals(expectedStatus, game.gameStatus());
+        assertEquals(expectedWrongGuessesMade, game.numWrongGuessesMade());
+        assertEquals(maxWrongGuesses-game.numWrongGuessesMade(),
+                     game.numWrongGuessesRemaining());
+        assertEquals(maxWrongGuesses, game.getMaxWrongGuesses());
+        assertEquals(expectedMysteryLetters, countMysteryLetters(game.getGuessedSoFar()));
+        assertEquals(expectedCorrectLetters, game.getCorrectlyGuessedLetters().size());
+        assertEquals(expectedIncorrectLetters, game.getIncorrectlyGuessedLetters().size());
+        assertEquals(game.getCorrectlyGuessedLetters().size()+game.getIncorrectlyGuessedLetters().size(),
+                     game.getAllGuessedLetters().size());
+        assertEquals(expectedIncorrectWords, game.getIncorrectlyGuessedWords().size());
+        assertEquals(secretWord.length(), game.getSecretWordLength());
+      }
+    }
+    GameVerifier verifier = new GameVerifier();
+
+    verifier.verify(0, HangmanGame.Status.KEEP_GUESSING, 0, 7, 0, 0, 0);
     new GuessLetter('a').makeGuess(game);
-    System.out.println(game);
+    verifier.verify(1, HangmanGame.Status.KEEP_GUESSING, 0, 5, 1, 0, 0);
     new GuessWord("natural").makeGuess(game);
-    System.out.println(game);
+    verifier.verify(2, HangmanGame.Status.KEEP_GUESSING, 1, 5, 1, 0, 1);
     new GuessLetter('x').makeGuess(game);
-    System.out.println(game);
+    verifier.verify(3, HangmanGame.Status.KEEP_GUESSING, 2, 5, 1, 1, 1);
     new GuessLetter('u').makeGuess(game);
-    System.out.println(game);
+    verifier.verify(4, HangmanGame.Status.KEEP_GUESSING, 2, 4, 2, 1, 1);
     new GuessLetter('l').makeGuess(game);
-    System.out.println(game);
+    verifier.verify(5, HangmanGame.Status.KEEP_GUESSING, 2, 3, 3, 1, 1);
     new GuessWord("factual").makeGuess(game);
-    System.out.println(game);
+    verifier.verify(5, HangmanGame.Status.GAME_WON,      2, 0, 3, 1, 1);
   }
 
   @Test

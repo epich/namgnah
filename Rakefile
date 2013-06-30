@@ -53,13 +53,15 @@ task :compile => "target/main" do
   ant.javac :srcdir => "src/main/java",
             :destdir => "target/main",
             :classpathref => "hangman.classpath",
-            :includeAntRuntime => false
+            :includeAntRuntime => false,
+            :debug => true
 end
 task :compile_test => "target/test" do
   ant.javac :srcdir => "src/test/java",
             :destdir => "target/test",
             :classpathref => "hangman.test.classpath",
-            :includeAntRuntime => false
+            :includeAntRuntime => false,
+            :debug => true
 end
 
 desc "Build the primary .jar file for Hangman."
@@ -72,7 +74,8 @@ end
 
 desc "Run the tests."
 task :test => [:jar, :jar_test] do
-  ant.junit do
+  # Fork starts a new JVM so as we don't get the huge JRuby stack trace when tests fail.
+  ant.junit :fork => true, :forkmode => "perBatch" do
     classpath :refid => "hangman.test.classpath"
     batchtest do
       formatter :type => "plain", :usefile => "false"
