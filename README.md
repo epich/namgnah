@@ -1,6 +1,10 @@
 Hangman
 =======
 
+Implements Hangman game and strategy.
+
+Author: Barry O'Reilly
+
 Setup
 -----
 

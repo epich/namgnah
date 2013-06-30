@@ -117,7 +117,7 @@ end
 
 desc "Play Hangman, brute forcing words from the words.txt dictionary.
 
-Displays average score over games played.
+Displays game scores and the average score over games played.
 
 Optionally specify STEP_SIZE (default: 1) in the environment in order
 to use every STEP_SIZEth word instead. For reference, STEP_SIZE=100

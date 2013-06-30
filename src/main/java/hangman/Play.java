@@ -1,5 +1,8 @@
 package hangman;
 
+/**
+ * Class to facilitate playing the HangmanGame with a specified strategy.
+ */
 public class Play {
   public static final int DEFAULT_NUM_GUESSES = 5;
   /**
@@ -13,10 +16,10 @@ public class Play {
   public static int run(HangmanGame game, GuessingStrategy strategy, boolean displayGame) throws NullGuessException
   {
     // If the GuessingStrategy creates duplicate guesses, the while
-    // loop can be unending. Play regards that as a strategy bug.
+    // loop can be unending. Play would regard that as a strategy bug.
     while( game.gameStatus()==HangmanGame.Status.KEEP_GUESSING ) {
       final Guess guess = strategy.nextGuess(game);
-      if( guess==null ) throw new NullGuessException("Strategy made a null guess. ");
+      if( guess==null ) throw new NullGuessException("Strategy made a null guess.");
       guess.makeGuess(game);
       if( displayGame ) System.out.println(game);
     }

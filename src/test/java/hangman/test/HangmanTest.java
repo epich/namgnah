@@ -31,11 +31,11 @@ public class HangmanTest {
   /** Play the HangmanGame over most or all words in the dictionary.
    *
    * This is not a part of the automated test suite, because of its
-   * long runtime.
+   * long runtime. Rather, it is invoked from the 'rake brute' task.
    *
-   * @param stepSize step through the dictionary, playing the HangmanGame
-   * for every stepSize-th word. eg stepSize==50 plays the game with 2%
-   * of all the dictionary words.
+   * @param stepSize step through the dictionary, playing the
+   * HangmanGame for every stepSize-th word. For instance,
+   * stepSize==50 plays the game with 2% of the dictionary words.
    * @param numGuesses is the number of wrong guesses allowed.
    */
   public static void runBrute(int stepSize, int numGuesses) throws Exception
