@@ -21,7 +21,9 @@ import java.util.Set;
  * 7.222350230414746 as measured by 'rake brute STEP_SIZE=100'. Note
  * however, an alternative implementation was tried which earned an
  * average score of 7.194700460829493 but ran 70% slower and made the
- * code slightly more complex.
+ * code slightly more complex. I did one run of 'rake brute
+ * STEP_SIZE=1' and earned an average score of 7.454730909530972 in
+ * 220m29.628s runtime.
  *
  * That alternate implementation had CharStats determine the word
  * count for each char (as it does now) and the char's overall count

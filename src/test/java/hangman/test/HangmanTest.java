@@ -55,13 +55,14 @@ public class HangmanTest {
     int scoreSum = 0;
     int gamesPlayed = 0;
     for( String wordI : dictL ) {
-      scoreSum += Play.run(new HangmanGame(wordI, numGuesses),
-                           new StrategyImpl(wordI.length(),
-                                            HangmanTest.class.getClassLoader().getResourceAsStream("words.txt")),
-                           false);
+      final int curScore = Play.run(new HangmanGame(wordI, numGuesses),
+                                    new StrategyImpl(wordI.length(),
+                                                     HangmanTest.class.getClassLoader().getResourceAsStream("words.txt")),
+                                    false);
+      scoreSum += curScore;
       ++gamesPlayed;
       final double averageScore = (double)scoreSum/(double)gamesPlayed;
-      System.out.println("Played word: "+wordI+", cumulative average score: "+averageScore);
+      System.out.println("Played word: "+wordI+", score: "+curScore+", cumulative average score: "+averageScore);
     }
   }
 
