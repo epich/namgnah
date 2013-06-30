@@ -98,25 +98,75 @@ public class StrategyImpl implements GuessingStrategy {
     candidateWords_ = newCandidates;
   }
 
-  // TODO revisit doc
-  //
-  // Consider the case where we have a small number of candidate
-  // words to a large number of mystery letters. Assume for the
-  // moment we have plenty of remaining guesses allowed. In that case,
-  // to maximize our score, we want to choose the character that best narrows down the candidates.
-  // This means choosing the char whose word count is closest to one half the number of candidate words.
-  //
-  // On the other hand, if we're nearly out of guesses, we want to be more conservative
-  // and choose the char that is most likely to yield a correct letter guess.
-  // This means choosing the char present in the most words.
-  //
-  // We choose the letter that is closest to half of the remaining candidate words.
-  // A tie (eg 10 candidates and char counts of 4 and 6 and no 5) is broken by
-  // choosing the higher.
+
+
+  /**
+   * Choose the char (letter) to use given the game status and
+   * character stats.
+   *
+   * This function decides which of two approaches to use in
+   * choosing. The result of the two approaches are the local
+   * variables:
+   *   - highestChar
+   *   - reductionChar
+   *
+   * To understand the distinction, contrast the cases where we have
+   * few wrong guesses remaining vs many.
+   *   - Few: the risk of running out of guesses overrules the the
+   *          desire to save a point or two from the final score.
+   *   - Many: running out of guesses is not a concern, so focus on
+   *           using each score point to reduce candidate words as
+   *           much as possible.
+   *
+   * If for example a char appears in 90% of words, how much can it
+   * reduce the candidate words? At least 10% is assured, likely more
+   * because (if correct), the positions of the revealed chars convey
+   * further information to allow more eliminations. Still, a
+   * reduction of 50% is not assured.
+   *
+   * If a char appears in 50% of words, then a 50% reduction
+   * in candidate words is a sure thing. If the candidate words can
+   * be halved at each guess, convergence to the answer is good.
+   * Since the potential to halve at all subsequent guesses is
+   * not verifiable efficiently, this approach is heuristic.
+   *
+   * But is 50% the right proportion, still assuming wrong guesses
+   * remaining are sufficiently high? As mentioned, correct guesses
+   * have a benefit wrong guesses do not: they can eliminate
+   * additional words based on the revealed positions of the
+   * characters. IOW, more useful information is revealed. So a
+   * proportion a bit above 50% would be better. reductionProportion
+   * is precisely this value and was tuned
+   * experimentally using:
+   *   rake brute STEP_SIZE=100
+   * to compute average scores on 1% of the dictionary. (The Rakefile
+   * documents the Rake build target further.)
+   *
+   * The final matter is quantifying when the wrong guesses remaining
+   * are sufficient to choose reductionChar over highestChar. Since
+   * the goal of the reductionChar is to reduce candidate words by
+   * half on average, we compare the log base 2 of the remaining
+   * candidate words to the wrong guesses remaining.
+   */
   private char chooseChar(HangmanGame game, CharStats charStats)
   {
+    // When we have ample wrong guess remaining, we'll choose chars
+    // with a count that is reductionProportion percent of the total
+    // candidate words. eg 0.5 means we would attempt to halve.
+    //
+    // With 0.5:   7.514976958525345
+    // With 0.55:  7.36520737327189
+    // With 0.6:   7.348502304147465
+    // With 0.61:  7.341013824884793
+    // With 0.62:  7.334677419354839
+    // With 0.625: 7.341589861751152
+    // With 0.63:  7.350230414746544
+    // With 0.65:  7.352534562211981
+    // With 0.7:   7.400345622119816
+    double reductionProportion = 0.62;
     // We'll either try to halve the candidate words, or try for the
     // most probable correct letter
+    int reductionChar = A_ASCII_CODE;
     int halvingChar = A_ASCII_CODE;
     int highestChar = A_ASCII_CODE;
     for( int charI = A_ASCII_CODE; charI<=Z_ASCII_CODE; ++charI ) {
@@ -124,6 +174,14 @@ public class StrategyImpl implements GuessingStrategy {
       {
         highestChar = charI;
       }
+
+      final double reductionPoint = reductionProportion*(double)candidateWords_.size();
+      final double charI_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(charI));
+      final double reductionChar_fromReductionPoint = Math.abs(reductionPoint-charStats.getCount(reductionChar));
+      if( charI_fromReductionPoint < reductionChar_fromReductionPoint ) {
+        reductionChar = charI;
+      }
+
       // Multiply by 2 to keep integers whole. We're still measuring from the middle,
       // just in other (consistent) units.
       final int charI_fromMid = Math.abs(2*charStats.getCount(charI)-candidateWords_.size());
@@ -149,7 +207,7 @@ public class StrategyImpl implements GuessingStrategy {
     final int wordsLg = 31 - Integer.numberOfLeadingZeros(candidateWords_.size());
     if( wordsLg<=game.numWrongGuessesRemaining() )
     {
-      return (char)halvingChar;
+      return (char)reductionChar;
     }
     return (char)highestChar;
   }
@@ -192,12 +250,12 @@ public class StrategyImpl implements GuessingStrategy {
     final char chosenChar = chooseChar(game, charStats);
 
     // TODO tmp
-    System.out.println("chosenChar="+chosenChar+" number candidates: "+candidateWords_.size()+" charStats="+charStats.toString());
-    if( candidateWords_.size()<20 ) {
-      for( String wordI : candidateWords_ ) {
-        System.out.println("  Candidate: "+wordI);
-      }
-    }
+    // System.out.println("chosenChar="+chosenChar+" number candidates: "+candidateWords_.size()+" charStats="+charStats.toString());
+    // if( candidateWords_.size()<20 ) {
+    //   for( String wordI : candidateWords_ ) {
+    //     System.out.println("  Candidate: "+wordI);
+    //   }
+    // }
 
     return new GuessLetter(chosenChar);
 
