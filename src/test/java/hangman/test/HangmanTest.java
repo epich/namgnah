@@ -48,7 +48,7 @@ public class HangmanTest {
                                             HangmanTest.class.getClassLoader().getResourceAsStream("words.txt")));
       ++gamesPlayed;
       final double averageScore = (double)scoreSum/(double)gamesPlayed;
-      System.out.println("Played word: "+wordI+" cumulative average score: "+averageScore);
+      System.out.println("Played word: "+wordI+", cumulative average score: "+averageScore);
     }
   }
 

@@ -114,6 +114,8 @@ end
 
 desc "Play Hangman, brute forcing words from the words.txt dictionary.
 
+Displays average score over games played.
+
 Optionally specify STEP_SIZE (default: 1) in the environment in order
 to use every STEP_SIZEth word instead. eg STEP_SIZE=100 runs in under
 2min on one computer.
@@ -123,7 +125,6 @@ hangman.Play.DEFAULT_NUM_GUESSES) in the environment."
 task :brute => [:jar, :jar_test] do
   require 'target/hangman.jar'
   require 'target/hangman-test.jar'
-  # Step size 100 is a few minutes, can be sit through
   step_size = ENV.key?('STEP_SIZE') ? Integer(ENV['STEP_SIZE']) : 1
   num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : Java::hangman::Play::DEFAULT_NUM_GUESSES
   Java::hangman::test::HangmanTest.runBrute(step_size, num_guesses)
