@@ -73,10 +73,18 @@ public class StrategyImpl implements GuessingStrategy {
     public CharStats(Set<Character> correctChars,
                      Set<Character> incorrectChars)
     {
+      // Since the inputed chars come from outside StrategyImpl, verify
+      // they're valid values.
       for( Character charI : correctChars ) {
+        if( charI<A_ASCII_CODE || Z_ASCII_CODE<charI ) {
+          throw new IllegalArgumentException("Expected char in [A-Z] but got "+charI+" instead.");
+        }
         charWordCounts_[code2Index(charI)] = -1;
       }
       for( Character charI : incorrectChars ) {
+        if( charI<A_ASCII_CODE || Z_ASCII_CODE<charI ) {
+          throw new IllegalArgumentException("Expected char in [A-Z] but got "+charI+" instead.");
+        }
         charWordCounts_[code2Index(charI)] = -1;
       }
     }
@@ -143,6 +151,7 @@ public class StrategyImpl implements GuessingStrategy {
       }
       if(wordMatches) newCandidates.add(wordI);
     }
+
     candidateWords_ = newCandidates;
   }
 
