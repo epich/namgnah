@@ -47,11 +47,15 @@ public class HangmanTest {
                            new StrategyImpl(wordI.length(),
                                             HangmanTest.class.getClassLoader().getResourceAsStream("words.txt")));
       ++gamesPlayed;
-      final double percentPlayed = (double)gamesPlayed/(double)dictL.size();
       final double averageScore = (double)scoreSum/(double)gamesPlayed;
       System.out.println("Played word: "+wordI+" cumulative average score: "+averageScore);
     }
   }
+
+  // TODO: Test provided word set and assert that mine performs better on average
+  // TODO: Test punctuation
+  // TODO: Test a Unicode character
+  // TODO: Test word not in dictionary
 
   @Test
   public void factualExample() {
