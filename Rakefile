@@ -4,14 +4,15 @@
 # Java. The dependency graph engine comes from Rake however, as does
 # the superior scripting facility.
 #
-# Example usage:
-#   - Run the tests: rake test
-#   - Play the game: rake play WORD=word GUESSES=5
-#       - Default WORD is randomly chosen from words.txt
-#       - Default GUESSES is 5
+# build.sh provides an alternative way to call Rake, particularly if
+# your PATH rake is from a C Ruby install. JRuby's is required.
 #
-# See build.sh provides an alternative way to call Rake assuming jruby
-# is available.
+# Some example usage:
+#   - Run the tests: rake test
+#   - Play the game: rake play WORD=FACTUAL GUESSES=4
+#   - Play by brute force: rake brute [STEP_SIZE=100]
+# See "desc" documentation later in this file for details on
+# these. Also see 'rake -h' help for general usage of Rake.
 #
 # Debugging notes:
 #   - Set loglevel in the ant.record task
@@ -36,8 +37,8 @@ ant.path :id => "hangman.test.classpath" do
   pathelement :location => "target/test"
 end
 
+# Rake "directory" tasks to create directories as needed
 ["target/main", "target/test"].each do |non_vcs_dir|
-  # Create Rake task to create dir if it doesn't exist
   directory non_vcs_dir
 end
 
@@ -61,6 +62,7 @@ task :compile_test => "target/test" do
             :includeAntRuntime => false
 end
 
+desc "Build the primary .jar file for Hangman."
 task :jar => [:compile, :resources] do
   ant.jar :destfile => "target/hangman.jar", :basedir => "target/main"
 end
@@ -68,6 +70,7 @@ task :jar_test => :compile_test do
   ant.jar :destfile => "target/hangman-test.jar", :basedir => "target/test"
 end
 
+desc "Run the tests."
 task :test => [:jar, :jar_test] do
   ant.junit do
     classpath :refid => "hangman.test.classpath"
@@ -83,19 +86,25 @@ def choose_random_word(dict)
   File.readlines(dict).sample.strip
 end
 
-GUESSES_DEFAULT = 5
-desc "Play Hangman with the provided strategy implementation. Optionally
-specify WORD (default: random) and GUESSES (default: #{GUESSES_DEFAULT})
-in the environment. eg: 'rake play WORD=food GUESSES=6'"
+# NB: To observe the DRY principle, I define DEFAULT_NUM_GUESSES
+# in the Play Java class. However, in a clean source tree, the
+# hangman.jar does not exist yet and therefore JRuby cannot get the
+# DEFAULT_NUM_GUESSES value to display as part of the task's desc.
+# Of course it can in the body since Rake will have built the
+# dependency .jar file.
+desc "Play Hangman with the provided strategy implementation.
+
+Optionally specify WORD (default: random from words.txt) and GUESSES
+(default: hangman.Play.DEFAULT_NUM_GUESSES) in the environment.
+eg: 'rake play WORD=food GUESSES=6'"
 task :play => :jar do
-  # Note: We're relying on the implementation to error check that word is in the words.txt.
-  # Unless WORD is unspecified, in which case the user wants a random word.
-  the_word = ENV.key?('WORD') ? ENV['WORD'] : choose_random_word("src/main/resources/words.txt")
-  # Only checking for undefined. If user passes something silly, let it fail Integer conversion.
-  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : GUESSES_DEFAULT
-  printf( "Playing Hangman with WORD=%s and allowed GUESSES=%s\n", the_word, num_guesses )
   require 'java'
   require 'target/hangman.jar'
+
+  the_word = ENV.key?('WORD') ? ENV['WORD'] : choose_random_word("src/main/resources/words.txt")
+  # Only checking for undefined. If user passes something silly, let it fail Integer conversion.
+  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : Java::hangman::Play::DEFAULT_NUM_GUESSES
+  printf( "Playing Hangman with WORD=%s and allowed GUESSES=%s\n", the_word, num_guesses )
   game = Java::hangman::HangmanGame.new(the_word, num_guesses)
   Java::hangman::Play.run(game,
                           Java::hangman::StrategyImpl.new(the_word.length,
@@ -103,18 +112,26 @@ task :play => :jar do
                                                           game.getClass().getClassLoader().getResourceAsStream("words.txt")))
 end
 
+desc "Play Hangman, brute forcing words from the words.txt dictionary.
+
+Optionally specify STEP_SIZE (default: 1) in the environment in order
+to use every STEP_SIZEth word instead. eg STEP_SIZE=100 runs in under
+2min on one computer.
+
+Also, optionally specify GUESSES (default:
+hangman.Play.DEFAULT_NUM_GUESSES) in the environment."
 task :brute => [:jar, :jar_test] do
   require 'target/hangman.jar'
   require 'target/hangman-test.jar'
   # Step size 100 is a few minutes, can be sit through
-  step_size = ENV.key?('STEP_SIZE') ? Integer(ENV['STEP_SIZE']) : 100
-  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : GUESSES_DEFAULT
+  step_size = ENV.key?('STEP_SIZE') ? Integer(ENV['STEP_SIZE']) : 1
+  num_guesses = ENV.key?('GUESSES') ? Integer(ENV['GUESSES']) : Java::hangman::Play::DEFAULT_NUM_GUESSES
   Java::hangman::test::HangmanTest.runBrute(step_size, num_guesses)
 end
 
-# Export Elisp for importing into Emacs.
-#
-# Primarily for the classpath, of which the Rakefile is the primary source
+desc "Export Elisp for importing into Emacs.
+
+Primarily for the classpath, of which the Rakefile is the primary source."
 file "hangman.el" => "Rakefile" do |task_arg|
   classpath_jvmStyle = ant.project.getReference('hangman.classpath').to_s+":"+ant.project.getReference('hangman.test.classpath').to_s
   classpath_lispStyle = '(defvar hangman-classpath (list "'+classpath_jvmStyle.gsub(":", '" "')+'"))'
