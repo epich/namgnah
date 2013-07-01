@@ -13,7 +13,7 @@ import java.util.Set;
  * HangmanGame.
  *
  * The strategy narrows down candidate words based on information from
- * the game and the previous list of candidate words. The strategy for
+ * the game and a previous list of candidate words. The strategy for
  * choosing a char is interesting and documented with the chooseChar
  * method.
  *
@@ -36,8 +36,8 @@ import java.util.Set;
  * greater. If we decided we liked the tradeoff, this could be
  * reimplemented.
  *
- * This class assumes HangmanGame returns Character as upper case, as
- * part of the software contract.
+ * This class assumes HangmanGame returns Character objects as upper
+ * case.
  */
 public class StrategyImpl implements GuessingStrategy {
   private List<String> candidateWords_;
@@ -108,7 +108,8 @@ public class StrategyImpl implements GuessingStrategy {
   }
 
   /**
-   * Create strategy, filtering the dictionary InputStream for words of the specified length.
+   * Create strategy, filtering the dictionary InputStream for words
+   * of the specified length.
    *
    * @param wordLen length of the word in play for the HangmanGame
    * @param dictionary InputStream of words constituting the dictionary
@@ -124,8 +125,9 @@ public class StrategyImpl implements GuessingStrategy {
   }
 
   /**
-   * Create a new candidateWords_ with a subset of elements of the former
-   * candidateWords_, based on updated information from the game.
+   * Create a new candidateWords_ with a subset of elements of the
+   * former candidateWords_, based on updated information from the
+   * game.
    */
   private void updateCandidateWords(HangmanGame game) {
     final List<String> newCandidates = new LinkedList<String>();
